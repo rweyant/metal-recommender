@@ -69,13 +69,13 @@ era_barchart <- function(data){
 
 # colnames(artist_summary)
 # column_match(artist_summary,'origin','name')
-compare_numeric_columns(data=artist_summary,categories=c('genre_death_metal','genre_doom_metal','genre_neopsychedelic'),columns=artist.cols$tempo_specific_cols,x.axis.label='Tempo')
-era_barchart(artist_summary)
+# compare_numeric_columns(data=artist_summary,categories=c('genre_death_metal','genre_doom_metal','genre_neopsychedelic'),columns=artist.cols$tempo_specific_cols,x.axis.label='Tempo')
+# era_barchart(artist_summary)
 
 
-compare_tempos(categories=c('genre_death_metal','genre_doom_metal'),columns=artist.cols$tempo_specific_cols,prefix='abc')
-compare_tempos(categories=c('origin_pittsburgh','origin_japan'),prefix='origin_')
-artist_summary %>% filter(origin_pittsburgh > 0)
+# compare_tempos(categories=c('genre_death_metal','genre_doom_metal'),columns=artist.cols$tempo_specific_cols,prefix='abc')
+# compare_tempos(categories=c('origin_pittsburgh','origin_japan'),prefix='origin_')
+# artist_summary %>% filter(origin_pittsburgh > 0)
 
 
 
