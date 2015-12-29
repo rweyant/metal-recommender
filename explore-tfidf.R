@@ -49,20 +49,44 @@ artist_summary <-
          metal=round(overall_metal),
          punk=round(overall_punk),
          indie_alt=round(overall_indie)) 
+artist_cols <- get_columns(colnames(artist_summary))
 
-n <- nrow(artist_summary)
-tfidf <- 
+cosine_similarity <- function(X,y) {
+  X %<>% as.matrix
+  y %<>% as.matrix
+  X %*% t(y) / (apply(X,1,function(x) norm(x,'2')) * norm(y,'2'))
+}
+
+get_similarity <- function(df,band){
+  tmpcs <- 
+    cosine_similarity(
+      df %>% select(-artist) %>% as.data.frame,
+      df %>% filter(artist==band) %>% select(-artist) %>% as.data.frame
+    )
+  cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
+}
+
+get_tags <- function(df,band) df %>% filter(artist==band) %>% select(which(. > 0.25))  %>% as.data.frame %>% t
+
+nrows <- nrow(artist_summary)
+metal_wgt <- 20
+
+cur_artist_set <- 
   artist_summary %>% 
+  filter(metal == 1)
+
+tfidf <- 
+  cur_artist_set %>% 
+  select(artist,artist_cols$tempo_general_cols,artist_cols$era_cols,artist_cols$genre_metal_cols) %>% 
   select(-artist) %>%
   select(which(colSums(.)>0)) %>%
-  mutate_each(funs(. * n/sum(.)))
-tfidf$artist <- artist_summary$artist
+  mutate_each(funs(. * nrows/sum(.))) 
+# %>% mutate(metal=metal_wgt * metal)
+tfidf$artist <- cur_artist_set$artist
 
-slayer <- tfidf %>% filter(artist=='slayer') %>% select(-artist) %>% as.matrix
-metallica <-  tfidf %>% filter(artist=='metallica') %>%  select(-artist) %>% as.matrix
-slomatics <-  tfidf %>% filter(artist=='slomatics') %>%  select(-artist) %>% as.matrix
+get_similarity(tfidf,'slayer') %>% print(n=20)
+get_tags(artist_summary,'slayer')
+get_tags(artist_summary,'mohoram atta, thou')
+get_tags(artist_summary,'cough')
 
-slayer %*% t(metallica)
-slayer %*% t(slomatics)
-metallica %*% t(slomatics)
-metallica %*% t(slayer)
+tfidf %>% filter(artist=='slayer') %>% select(metal)
