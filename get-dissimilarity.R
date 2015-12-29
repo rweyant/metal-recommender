@@ -49,6 +49,7 @@ artist_summary <-
          metal=round(overall_metal),
          punk=round(overall_punk),
          indie_alt=round(overall_indie)) 
+artist_summary %>% filter(tempo_medium > 1) %>% select(artist,tempo_medium_tempo)
 head(artist_summary)
 artist.cols <- get_columns(colnames(artist_summary))
 
