@@ -66,27 +66,45 @@ get_similarity <- function(df,band){
   cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
 }
 
-get_tags <- function(df,band) df %>% filter(artist==band) %>% select(which(. > 0.25))  %>% as.data.frame %>% t
+get_tags <- function(df,band) df %>% filter(artist==band) %>% select(which(. > 0.1))  %>% as.data.frame %>% t
 
-nrows <- nrow(artist_summary)
-metal_wgt <- 20
+calc_tfidf <- function(df,columns){
+  nrows <- nrow(df)
+  tfidf <- 
+    df %>% 
+    select(artist,columns) %>% 
+    select(-artist) %>%
+    select(which(colSums(.)>0)) %>%
+    mutate_each(funs(. * nrows/sum(.))) 
+  tfidf$artist <- df$artist
+  tfidf
+}
+metal_artists <- artist_summary %>% filter(metal == 1)
+genre_tfidf <- calc_tfidf(metal_artists,artist_cols$genre_cols)
+slayer_related <- get_similarity(genre_tfidf,'slayer') 
+top10 <- slayer_related %>% mutate(pct_rank=percent_rank(similarity)) %>% filter(pct_rank > 0.9 | pct_rank == max(pct_rank)) %>% select(artist)
 
-cur_artist_set <- 
-  artist_summary %>% 
-  filter(metal == 1)
+genre_related <- artist_summary %>% filter(artist %in% top10$artist)
+mood_tfidf <- calc_tfidf(genre_related,artist_cols$mood_cols)
+get_similarity(mood_tfidf,'slayer')
 
+system.time(
 tfidf <- 
   cur_artist_set %>% 
-  select(artist,artist_cols$tempo_general_cols,artist_cols$era_cols,artist_cols$genre_metal_cols) %>% 
+  select(artist,artist_cols$genre_metal_cols) %>% 
   select(-artist) %>%
   select(which(colSums(.)>0)) %>%
   mutate_each(funs(. * nrows/sum(.))) 
+)
 # %>% mutate(metal=metal_wgt * metal)
 tfidf$artist <- cur_artist_set$artist
 
-get_similarity(tfidf,'slayer') %>% print(n=20)
+
 get_tags(artist_summary,'slayer')
-get_tags(artist_summary,'mohoram atta, thou')
-get_tags(artist_summary,'cough')
+get_tags(artist_summary,'lamb of god')
+get_tags(artist_summary,'fight')
+
+get_tags(artist_summary,'megadeth')
+get_tags(artist_summary,'skeletonwitch')
 
 tfidf %>% filter(artist=='slayer') %>% select(metal)

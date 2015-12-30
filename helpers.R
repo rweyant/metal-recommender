@@ -28,6 +28,7 @@ get_columns <- function(column.names){
   is_general_tempo <- str_detect(column.names,'tempo_[a-z]')
   is_specific_tempo <- str_detect(column.names,'tempo_[1-9]')
   is_era <- str_detect(column.names,'era_')
+  is_mood <- str_detect(column.names,'mood_')
   
   is_origin <- str_detect(column.names,'origin_')
   is_state_name <- 
@@ -58,6 +59,7 @@ get_columns <- function(column.names){
     origin_cols=which(is_origin),
     origin_states_cols=which(is_state_name),
     origin_country_cols=which(is_country_name),
+    mood_cols=which(is_mood),
     genre_cols=which(is_genre),
     genre_metal_cols= which(is_metal),
     genre_punk_cols=which(is_punk),
