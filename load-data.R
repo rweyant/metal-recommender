@@ -21,7 +21,7 @@ files <- list.files(dir)
 small.n <- 626
 
 full_results <-
-  mclapply(files[str_detect(files,'json')][1:small.n], function(file.name){
+  mclapply(files[str_detect(files,'json')], function(file.name){
     
     message(file.name)
     file_root <- file_path_sans_ext(file.name)
