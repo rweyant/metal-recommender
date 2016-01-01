@@ -69,13 +69,7 @@ full_results <-
   )
 
 ### Combine Everything
-comp_full_df <- Reduce(function(...) merge(...,all=TRUE), full_results[1:100])
-test_mc <- mclapply(
-  full_results[1:10],
-  function(x) Reduce(function(...) merge(...,all=TRUE),x),
-  mc.cores=8
-  )
-
+system.time(comp_full_df <- rbind_all(full_results))
 
 ### Check inputs == outputs
 sapply(full_results,function(x) x$artist[1]) %>% unlist %>% unique %>% length
