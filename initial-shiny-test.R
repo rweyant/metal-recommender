@@ -69,13 +69,17 @@ server <- function(input, output) {
   output$bandVoting <- renderUI({
     top_unrated_band()
   })
+  output$frame <- renderUI({
+    tags$iframe(src="https://embed.spotify.com/?uri=spotify:track:4th1RQAelzqgY7wL53UGQt",width=300,height=250,frameborder=0,allowtransparency='true')
+  })
 }
 
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       uiOutput('bandVoting'),
-      actionButton('SubmitButton','Submit')
+      actionButton('SubmitButton','Submit'),
+      htmlOutput('frame')
     ),
     mainPanel(
       h2('recommended artists'),
