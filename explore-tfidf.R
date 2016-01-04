@@ -105,6 +105,7 @@ get_similarity(test_function,'slayer')
 
 
 test_function$weight <- 0
+test_function %<>% mutate(weight=ifelse(artist %in% c('slayer'),1,weight)) 
 test_function %<>% mutate(weight=ifelse(artist %in% c('slayer','testament','anacrusis','sadus','death angel','kreator','destruction','metallica'),1,weight)) 
 test_function %<>% mutate(weight=ifelse(artist %in% c('strapping young lad','probot','nasty savage','meshuggah','municipal waste','overkill','gama bomb'),-1,weight)) 
 
