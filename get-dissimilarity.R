@@ -1,4 +1,4 @@
-library(dplyr)
+library(plyr); library(dplyr)
 library(cluster)
 library(magrittr)
 library(stringr)
@@ -10,7 +10,9 @@ library(maps)
 library(lazyeval)
 library(RJSONIO)
 
+
 source('helpers.R')
+source('last-fm-helpers.R')
 # source('comparison_functions.R')
 data(world.cities)
 
@@ -41,6 +43,7 @@ full_df$overall_rock <- apply(full_df[,songs.cols$genre_rock_cols],1,any)
 ### 
 artist_summary <- 
   full_df %>% 
+  filter(!str_detect(artist,'[:cntrl:]')) %>% 
   group_by(artist) %>% 
   select(-title,-queried_artist,-album,-queried_album,-album_year) %>% 
   mutate(num_songs=n()) %>% 
@@ -79,7 +82,8 @@ sim <-
       # Restrict to metal bands
       filter(overall_metal == 1) %>% 
       # Only based on mood
-      mutate_each_(funs(weight(.,weight_mood)),column_match(.,pattern=c('mood_'),'name')) %>% 
+      # mutate_each_(funs(weight(.,weight_mood)),column_match(.,pattern=c('mood_'),'name')) %>% 
+      mutate_each_(funs(weight(.,1)),column_match(.,pattern=c('lfm_'),'name')) %>%
       # mutate_each_(funs(weight(.,weight_tempo)),column_match(.,pattern=c('tempo_'),'name')) %>%
       # mutate_each_(funs(weight(.,weight_genre)),column_match(.,pattern=c('genre_'),'name')) %>% 
       select(column_match(., 'mood'

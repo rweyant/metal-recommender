@@ -24,6 +24,7 @@ extract_tags <- function(song_title,df){
 
 ## This might suck
 get_columns <- function(column.names){
+  
   is_tempo <- str_detect(column.names,'tempo_')
   is_general_tempo <- str_detect(column.names,'tempo_[a-z]')
   is_specific_tempo <- str_detect(column.names,'tempo_[1-9]')
@@ -32,10 +33,10 @@ get_columns <- function(column.names){
   
   is_origin <- str_detect(column.names,'origin_')
   is_state_name <- 
-    str_detect(column.names,'origin_') & str_detect(column.names,paste(str_replace(tolower(state.name),' ','_'),collapse='|')) & !str_detect(column.names,'city')
+    is_origin & str_detect(column.names,paste(str_replace(tolower(state.name),' ','_'),collapse='|')) & !str_detect(column.names,'city')
   
   is_country_name <- 
-    (str_detect(column.names,'origin_') 
+    (is_origin 
      & str_detect(column.names,paste(str_replace(tolower(world.cities$country.etc),' ','_'),collapse='|')) 
      & !str_detect(column.names,'city')
      & !str_detect(column.names,'milwaukee') 
@@ -45,9 +46,11 @@ get_columns <- function(column.names){
   
   ### Genre
   is_genre <- str_detect(column.names,'genre_')
-  is_metal <- str_detect(column.names,'genre_') & (str_detect(column.names,'metal') | str_detect(column.names,'industrial'))
-  is_punk <- str_detect(column.names,'genre_') & (str_detect(column.names,'punk') | str_detect(column.names,'hardcore'))
-  is_rock <- str_detect(column.names,'genre_') & (str_detect(column.names,'rock') | str_detect(column.names,'alternative'))
+  is_metal <- is_genre & (str_detect(column.names,'metal') | str_detect(column.names,'industrial'))
+  is_punk <- is_genre & (str_detect(column.names,'punk') | str_detect(column.names,'hardcore'))
+  is_rock <- is_genre & (str_detect(column.names,'rock') | str_detect(column.names,'alternative'))
+  
+  is_lfm <- str_detect(column.names,'lfm_')
   
   list(
     tempo_cols=which(is_tempo),
@@ -63,7 +66,8 @@ get_columns <- function(column.names){
     genre_cols=which(is_genre),
     genre_metal_cols= which(is_metal),
     genre_punk_cols=which(is_punk),
-    genre_rock_cols=which(is_rock)
+    genre_rock_cols=which(is_rock),
+    lfm_cols=which(is_lfm)
   )
 }
 

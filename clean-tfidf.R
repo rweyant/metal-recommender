@@ -9,8 +9,14 @@ library(reshape2)
 library(maps)
 library(lazyeval)
 library(RJSONIO)
+library(jsonlite)
+library(memoise)
+library(tidyr)
 
 source('helpers.R')
+source('tfidf-helpers.R')
+source('last-fm-helpers.R')
+
 # source('comparison_functions.R')
 data(world.cities)
 
@@ -20,20 +26,19 @@ dim(full_df)
 data_cols <- 7:dim(full_df)[2]
 full_df[,data_cols] %>% names
 
-
 ###
 ### Create grouping variables
 ###
 
-songs_cols <- get_columns(colnames(full_df))
-indie_cols0 <- c(column_match(full_df,'indie',type='name'),column_match(full_df,'alt',type='name'))
-indie_cols <- indie_cols0[str_detect(indie_cols0,'genre_') & !str_detect(indie_cols0,'folk')]
-full_df$any_state <- apply(full_df[,songs_cols$origin_states_cols],1,any)
-full_df$origin_missing <- !apply(full_df[,songs_cols$origin_cols],1,any)
-full_df$overall_metal <- apply(full_df[,songs_cols$genre_metal_cols],1,any)
-full_df$overall_punk <- apply(full_df[,songs_cols$genre_punk_cols],1,any)
-full_df$overall_indie <- apply(full_df[,indie_cols],1,any)
-full_df$overall_rock <- apply(full_df[,songs_cols$genre_rock_cols],1,any)
+# songs_cols <- get_columns(colnames(full_df))
+# indie_cols0 <- c(column_match(full_df,'indie',type='name'),column_match(full_df,'alt',type='name'))
+# indie_cols <- indie_cols0[str_detect(indie_cols0,'genre_') & !str_detect(indie_cols0,'folk')]
+# full_df$any_state <- apply(full_df[,songs_cols$origin_states_cols],1,any)
+# full_df$origin_missing <- !apply(full_df[,songs_cols$origin_cols],1,any)
+# full_df$overall_metal <- apply(full_df[,songs_cols$genre_metal_cols],1,any)
+# full_df$overall_punk <- apply(full_df[,songs_cols$genre_punk_cols],1,any)
+# full_df$overall_indie <- apply(full_df[,indie_cols],1,any)
+# full_df$overall_rock <- apply(full_df[,songs_cols$genre_rock_cols],1,any)
 
 
 ###
@@ -49,61 +54,15 @@ artist_summary <-
          metal=round(overall_metal),
          punk=round(overall_punk),
          indie_alt=round(overall_indie)) 
-artist_cols <- get_columns(colnames(artist_summary))
 
-artist_lfm_tags <- lapply(head(artist_summary$artist,1000),get_last_fm_tags)
+artist_lfm_tags <- lapply(head(artist_summary$artist,50),get_last_fm_tags)
 last_fm_tags <- bind_rows(artist_lfm_tags)
 
 merged_artists <- artist_summary %>% left_join(last_fm_tags, by = 'artist')
 artist_summary <- merged_artists
+cols <- colnames(artist_summary)
+artist_cols <- get_columns(cols)
 
-cosine_similarity <- function(X,y) {
-  X %<>% as.matrix
-  y %<>% as.matrix
-  X %*% t(y) / (apply(X,1,function(x) norm(x,'2')) * norm(y,'2'))
-}
-
-get_similarity <- function(df,band){
-  tmpcs <- 
-    cosine_similarity(
-      df %>% select(-artist) %>% as.data.frame,
-      df %>% filter(artist==band) %>% select(-artist) %>% as.data.frame
-    )
-  cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
-}
-
-get_similarity_vector <- function(df,characteristics){
-  tmpcs <- 
-    cosine_similarity(
-      df %>% select(-artist) %>% as.data.frame,
-      characteristics
-    )
-  cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
-}
-
-get_tags <- function(df,band,threshold=0.1) df %>% filter(artist==band) %>% select(which(. > threshold)) %>% select(-artist) %>% data.frame %>% t
-
-calc_tfidf <- function(df,columns){
-  nrows <- nrow(df)
-  tfidf <- 
-    df %>% 
-    select(artist,columns) %>% 
-    select(-artist) %>%
-    select(which(colSums(.)>0)) %>%
-    mutate_each(funs(. * nrows/sum(.))) 
-  tfidf$artist <- df$artist
-  tfidf
-}
-
-
-get_layered_similarity_artist <- function(df,artist,first,second,percent=0.9){
-  first_tfidf <- calc_tfidf(df,first)
-  first_related_similarity <- get_similarity(first_tfidf,artist) 
-  top_artists <- first_related_similarity %>% mutate(pct_rank=percent_rank(similarity)) %>% filter(pct_rank > percent | pct_rank == max(pct_rank)) %>% select(artist)
-  first_related_df <- df %>% filter(artist %in% top_artists$artist)
-  second_tfidf <- calc_tfidf(first_related_df,second)
-  second_tfidf
-}
 
 metal_artists <- artist_summary %>% filter(metal == 1)
 test_function <- get_layered_similarity_artist(metal_artists,'slayer',artist_cols$genre_cols,c(artist_cols$mood_cols,artist_cols$tempo_cols,artist_cols$era_cols))
