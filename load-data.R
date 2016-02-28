@@ -86,3 +86,56 @@ full_df[is.na(full_df)] <- FALSE
 
 save(full_df,file = 'RData/test_data.RData')
 save.image(file = 'RData/workspace_image.RData')
+
+#####
+# source('comparison_functions.R')
+data(world.cities)
+
+load('RData/test_data.RData')
+dim(full_df)
+
+data_cols <- 7:dim(full_df)[2]
+full_df[,data_cols] %>% names
+
+###
+### Create grouping variables
+###
+
+songs_cols <- get_columns(colnames(full_df))
+indie_cols0 <- c(column_match(full_df,'indie',type='name'),column_match(full_df,'alt',type='name'))
+indie_cols <- indie_cols0[str_detect(indie_cols0,'genre_') & !str_detect(indie_cols0,'folk')]
+full_df$any_state <- apply(full_df[,songs_cols$origin_states_cols],1,any)
+full_df$origin_missing <- !apply(full_df[,songs_cols$origin_cols],1,any)
+full_df$overall_metal <- apply(full_df[,songs_cols$genre_metal_cols],1,any)
+full_df$overall_punk <- apply(full_df[,songs_cols$genre_punk_cols],1,any)
+full_df$overall_indie <- apply(full_df[,indie_cols],1,any)
+full_df$overall_rock <- apply(full_df[,songs_cols$genre_rock_cols],1,any)
+
+###
+### Summarize Artists
+### 
+artist_summary <- 
+  full_df %>% 
+  group_by(artist) %>% 
+  select(-title,-queried_artist,-album,-queried_album,-album_year) %>% 
+  mutate(num_songs=n()) %>% 
+  summarise_each(funs(mean)) %>% 
+  mutate(rock=round(overall_rock),
+         metal=round(overall_metal),
+         punk=round(overall_punk),
+         indie_alt=round(overall_indie)) 
+
+artist_lfm_tags <- lapply(artist_summary$artist,get_last_fm_tags)
+last_fm_tags <- bind_rows(artist_lfm_tags)
+
+merged_artists <- artist_summary %>% left_join(last_fm_tags, by = 'artist')
+artist_summary <- merged_artists
+
+cols <- colnames(artist_summary)
+artist_cols <- get_columns(cols)
+
+metal_artists <- artist_summary %>% filter(metal == 1)
+metal_artists[is.na(metal_artists)] <- 0
+
+save(metal_artists,artist_cols,file = 'RData/metal-example.RData')
+

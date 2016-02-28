@@ -10,6 +10,7 @@ library(maps)
 library(lazyeval)
 library(RJSONIO)
 library(shiny)
+library(shinydashboard)
 
 update_artist_lists <- function(){
   unvoted <<- test_function %>% dplyr::filter(voted==0) %>% select(artist) %>% extract2(1) 
@@ -23,10 +24,10 @@ update_similarity <- function(){
     get_similarity_vector(test_function %>% select(-weight,-voted),chars) 
 }
 
+load('RData/saved_examples.RData')
+message('Data Loaded.')
+
 server <- function(input, output) {
-  
-  load('RData/saved_examples.RData')
-  message('Data Loaded.')
   
   test_function$weight <- 0
   test_function$voted <- 0

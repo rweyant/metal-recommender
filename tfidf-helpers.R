@@ -15,6 +15,22 @@ get_similarity <- function(df,band){
 }
 
 get_similarity_vector <- function(df,characteristics){
+  
+  common_columns <- names(characteristics)[names(characteristics) %in% names(characteristics) & names(characteristics) %in% names(df)]
+  
+  tmpcs <- 
+    cosine_similarity(
+      df %>% select(which(names(df) %in% common_columns)) %>% select(-artist) %>% as.data.frame ,
+      characteristics %>% select(which(names(characteristics) %in% common_columns)) %>% select(-artist) %>% as.data.frame 
+    )
+  cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
+}
+
+
+get_similarity_vector_uneven <- function(df,characteristics){
+  
+  
+  
   tmpcs <- 
     cosine_similarity(
       df %>% select(-artist) %>% as.data.frame,
@@ -23,20 +39,27 @@ get_similarity_vector <- function(df,characteristics){
   cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
 }
 
+
 get_tags <- function(df,band,threshold=0.1) df %>% filter(artist==band) %>% select(which(. > threshold)) %>% select(-artist) %>% data.frame %>% t
 
-calc_tfidf <- function(df,columns){
+# Calculate TF-IDF based on a specific set of columns
+calc_tfidf <- function(df,
+                       columns){
   nrows <- nrow(df)
   tfidf <- 
     df %>% 
-    select(artist,columns) %>% 
+    # select(columns) %>% 
+    # select(artist,columns) %>% 
     select(-artist) %>%
-    select(which(colSums(.)>0)) %>%
+    select(which(colSums(., na.rm = TRUE)>0)) %>%
     mutate_each(funs(. * nrows/sum(.))) 
   tfidf$artist <- df$artist
   tfidf
 }
 
+#####
+
+#####
 
 get_layered_similarity_artist <- function(df,artist,first,second,percent=0.9){
   first_tfidf <- calc_tfidf(df,first)
