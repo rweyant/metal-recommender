@@ -62,6 +62,7 @@ get_columns <- function(column.names){
     origin_cols=which(is_origin),
     origin_states_cols=which(is_state_name),
     origin_country_cols=which(is_country_name),
+    origin_country_names=column.names[which(is_country_name)],
     mood_cols=which(is_mood),
     genre_cols=which(is_genre),
     genre_metal_cols= which(is_metal),

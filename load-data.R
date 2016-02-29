@@ -131,11 +131,14 @@ last_fm_tags <- bind_rows(artist_lfm_tags)
 merged_artists <- artist_summary %>% left_join(last_fm_tags, by = 'artist')
 artist_summary <- merged_artists
 
-cols <- colnames(artist_summary)
-artist_cols <- get_columns(cols)
+# cols <- colnames(artist_summary)
+# artist_cols <- get_columns(cols)
 
 metal_artists <- artist_summary %>% filter(metal == 1)
 metal_artists[is.na(metal_artists)] <- 0
+
+cols <- names(trim_metal_artists)
+artist_cols <- get_columns(cols)
 
 save(metal_artists,artist_cols,file = 'RData/metal-example.RData')
 

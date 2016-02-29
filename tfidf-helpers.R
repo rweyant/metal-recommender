@@ -20,36 +20,30 @@ get_similarity_vector <- function(df,characteristics){
   
   tmpcs <- 
     cosine_similarity(
-      df %>% select(which(names(df) %in% common_columns)) %>% select(-artist) %>% as.data.frame ,
-      characteristics %>% select(which(names(characteristics) %in% common_columns)) %>% select(-artist) %>% as.data.frame 
+      df %>% select(which(names(df) %in% common_columns)) %>% as.data.frame ,
+      characteristics %>% select(which(names(characteristics) %in% common_columns)) %>% as.data.frame 
     )
   cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
 }
 
-
-get_similarity_vector_uneven <- function(df,characteristics){
-  
-  
-  
-  tmpcs <- 
-    cosine_similarity(
-      df %>% select(-artist) %>% as.data.frame,
-      characteristics
-    )
-  cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
-}
-
+# 
+# get_similarity_vector_uneven <- function(df,characteristics){
+#   tmpcs <- 
+#     cosine_similarity(
+#       df %>% select(-artist) %>% as.data.frame,
+#       characteristics
+#     )
+#   cbind.data.frame(artist=df$artist,similarity=tmpcs) %>%  arrange(desc(similarity)) %>%  as.tbl
+# }
+# 
 
 get_tags <- function(df,band,threshold=0.1) df %>% filter(artist==band) %>% select(which(. > threshold)) %>% select(-artist) %>% data.frame %>% t
 
 # Calculate TF-IDF based on a specific set of columns
-calc_tfidf <- function(df,
-                       columns){
+calc_tfidf <- function(df){
   nrows <- nrow(df)
   tfidf <- 
     df %>% 
-    # select(columns) %>% 
-    # select(artist,columns) %>% 
     select(-artist) %>%
     select(which(colSums(., na.rm = TRUE)>0)) %>%
     mutate_each(funs(. * nrows/sum(.))) 
