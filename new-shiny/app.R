@@ -27,34 +27,11 @@ load('../RData/metal-example.RData')
 load('../RData/artist_cols.RData')
 
 
-# 
-# update_artist_lists <- function(){
-#   unvoted <<- test_function %>% dplyr::filter(voted==0) %>% select(artist) %>% extract2(1) 
-#   liked <<- test_function %>% dplyr::filter(weight>0) %>% select(artist) %>% extract2(1) 
-#   disliked <<- test_function %>% dplyr::filter(weight<0) %>% select(artist) %>% extract2(1) 
-#   vote_skipped <<- test_function %>% dplyr::filter(weight==0,voted==1) %>% select(artist) %>% extract2(1) 
-# }
-
-# update_similarity <- function(){
-#   similarity <<- 
-#     get_similarity_vector(
-#       current_tfidf, 
-#       profile_of_interest
-#     ) 
-# }
-
-# trim_metal_artists <-
-#   metal_artists %>%
-#   select(-artist) %>% 
-#   select(which(colSums(., na.rm = TRUE) > 0 ))
-# trim_metal_artists$artist <- metal_artists$artist
-
 zero <- function(x) 0
 profile_of_interest <- trim_metal_artists[1,] %>% mutate_each(funs(zero)) %>% select(-artist)
+dt_trim_metal_artists <- as.data.table(trim_metal_artists)
 current_artists <- trim_metal_artists
-# layered_tfidf_weights <- test_function
-# layered_tfidf_weights$weight <- 0
-# layered_tfidf_weights$voted <- 0
+
 
 vote_weights <- data_frame(like=1,dislike=-1,na=0)
 genre_map <- list(
@@ -154,9 +131,6 @@ ui <- dashboardPage(
       box(
         title = "Recommended Artists",
         div(style = 'overflow-y: scroll', DT::dataTableOutput('like_table'))
-      ),
-      box(
-        tableOutput('update_genres')
       )
     )
   ),
@@ -170,11 +144,32 @@ server <- function(input, output) {
   update_profile <- function(){
     
     # Update Artist tags
-    profile_of_interest <<- trim_metal_artists %>% filter(artist %in% input$in6) %>% select(-artist) %>% summarize_each(funs(mean)) 
+    if( length(input$in6) > 0 ) {
+      dt_trim_metal_artists <- as.data.table(trim_metal_artists)
+      setkey(dt_trim_metal_artists, artist)
+      in_cols <- colnames(dt_trim_metal_artists)[colnames(dt_trim_metal_artists) != 'artist']
+      profile_of_interest <<- as.tbl(dt_trim_metal_artists[input$in6, lapply(.SD, mean), .SDcols = in_cols ])
+    }
+
     message("Updating: ")
     message(length(input$in6))
     message(cat(input$in6))
 
+  }
+  
+  update_genres_nr <-function(){
+    message('----------------')
+    # lapply(names(input), function(x) message( paste0(x, ': ', paste(input[[x]], collapse=', ')) ) )
+    message('----------------')
+    
+    # Restrict current_artists to those who are of the selected genres
+    current_artists <<- find_current_artists(c(genre_map[input$genres],origin_map[input$origin]))
+    
+    # Update TF-IDF to the new subset of bands
+    current_tfidf <<- calc_tfidf(df = current_artists)
+    
+    message(dim(current_artists)[1])
+    # head(get_similarity_vector(current_tfidf, profile_of_interest),8)
   }
   
   find_current_artists <- function(columns){
@@ -184,86 +179,107 @@ server <- function(input, output) {
       mutate(relevant = rowSums(.))
     
     trim_metal_artists %>% filter(is_artist_relevant$relevant > 0)  
+    
+#     tmp_trim <- copy(dt_trim_metal_artists)
+#     as.tbl(tmp_trim[, relevant := Reduce(`+`, .SD), .SDcols = columns, by = artist][relevant > 0])
   }
-   
-  # output$out6 <- renderPrint(input$in6)
-  
-  like_table <- eventReactive(input$in6,{
-    message('like_table: ')
-    message(cat(input$in6))
-    
-    # layered_tfidf_weights <<- layered_tfidf_weights %>% mutate(weight = ifelse( artist %in% input$in6, 1, 0 ))
-    
-    # update_similarity()
-    update_profile()
-    print(max(profile_of_interest))
-    # similarity %>% filter(! ( artist %in% input$in6) ) %>% head(15)
-    head(get_similarity_vector(current_tfidf, profile_of_interest),20)
-  })
-  
+
   output$like_table <- DT::renderDataTable({
-    
-    
-    DT::datatable(like_table(), options = list('dom' = 't'))
+    if(length(input$in6) > 0){
+      message('like_table: ')
+      message(cat(input$in6))
+      
+      update_profile()
+      update_genres_nr()
+      
+      print(max(profile_of_interest))
+      
+      DT::datatable(
+        head(get_similarity_vector(current_tfidf, profile_of_interest),20),
+        options = list('dom' = 't')
+      )
+    }
   })
+
   
-  update_genres <- eventReactive({
-    input$genres
-    input$origin
-    input$vocals
-    input$modifiers
-      # input
-    },
-    {
-      message('----------------')
-      lapply(names(input), function(x) message( paste0(x, ': ', paste(input[[x]], collapse=', ')) ) )
-      message('----------------')
-      
-      # Restrict current_artists to those who are of the selected genres
-      current_artists <<- find_current_artists(c(genre_map[input$genres],origin_map[input$origin]))
-      
-      # Update TF-IDF to the new subset of bands
-      current_tfidf <<- calc_tfidf(df = current_artists)
-      
-      message(dim(current_artists)[1])
-      head(get_similarity_vector(current_tfidf, profile_of_interest),8)
-  })
+
+  
+  
+  
+  #   like_table <- eventReactive(input$in6,{
+  #     message('like_table: ')
+  #     message(cat(input$in6))
+  #     
+  #     # layered_tfidf_weights <<- layered_tfidf_weights %>% mutate(weight = ifelse( artist %in% input$in6, 1, 0 ))
+  #     
+  #     # update_similarity()
+  #     # update_profile()
+  #     print(max(profile_of_interest))
+  #     # similarity %>% filter(! ( artist %in% input$in6) ) %>% head(15)
+  #     head(get_similarity_vector(current_tfidf, profile_of_interest),20)
+  #   })
+  
+  
+  #   update_genres <- eventReactive({
+  #     input$genres
+  #     input$origin
+  #     input$vocals
+  #     input$modifiers
+  #     },
+  #     {
+  #       message('----------------')
+  #       lapply(names(input), function(x) message( paste0(x, ': ', paste(input[[x]], collapse=', ')) ) )
+  #       message('----------------')
+  #       
+  #       # Restrict current_artists to those who are of the selected genres
+  #       current_artists <<- find_current_artists(c(genre_map[input$genres],origin_map[input$origin]))
+  #       
+  #       # Update TF-IDF to the new subset of bands
+  #       current_tfidf <<- calc_tfidf(df = current_artists)
+  #       
+  #       message(dim(current_artists)[1])
+  #       head(get_similarity_vector(current_tfidf, profile_of_interest),8)
+  #   })
   
 #   
-#   update_origin <- eventReactive(input$origin,{
-#     print(origin_map[input$origin])
-#     
-#     # Restrict current_artists to those who are of the selected genres
-#     current_artists <<- find_current_artists(c(genre_map[input$genres],origin_map[input$origin]))
-#     
-#     # Update TF-IDF to the new subset of bands
-#     current_tfidf <<- calc_tfidf(df = current_artists)
-#     
-#     message(dim(current_artists)[1])
-#     head(get_similarity_vector(current_tfidf, profile_of_interest),8)
+#   output$update_genres <- renderTable({
+#     message('renderTable genre')
+#     update_genres()
 #   })
-  
-  
-  output$update_genres <- renderTable({
-    message('renderTable genre')
-    update_genres()
-  })
-  
-  output$update_origin <- renderTable({
-    message('renderTable origin')
-    update_origin()
-  })
+#   
+#   output$update_origin <- renderTable({
+#     message('renderTable origin')
+#     update_origin()
+#   })
   
   
   
   
 }
 
-#     tmp_df <- profile_of_interest
-#     tmp_df[,as.character(unlist(genre_map[(names(genre_map) %in% input$genres)]))] <- 1
-#     tmp_df[,as.character(unlist(genre_map[!(names(genre_map) %in% input$genres)]))] <- 0
-#     profile_of_interest <<- tmp_df
-#     
+
+
+# 
+# update_artist_lists <- function(){
+#   unvoted <<- test_function %>% dplyr::filter(voted==0) %>% select(artist) %>% extract2(1) 
+#   liked <<- test_function %>% dplyr::filter(weight>0) %>% select(artist) %>% extract2(1) 
+#   disliked <<- test_function %>% dplyr::filter(weight<0) %>% select(artist) %>% extract2(1) 
+#   vote_skipped <<- test_function %>% dplyr::filter(weight==0,voted==1) %>% select(artist) %>% extract2(1) 
+# }
+
+# update_similarity <- function(){
+#   similarity <<- 
+#     get_similarity_vector(
+#       current_tfidf, 
+#       profile_of_interest
+#     ) 
+# }
+
+# trim_metal_artists <-
+#   metal_artists %>%
+#   select(-artist) %>% 
+#   select(which(colSums(., na.rm = TRUE) > 0 ))
+# trim_metal_artists$artist <- metal_artists$artist
 
 
 
