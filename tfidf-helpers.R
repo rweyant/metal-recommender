@@ -41,7 +41,7 @@ calc_tfidf <- function(df){
   nrows <- nrow(dt_current_artists)
   in_cols <- colnames(dt_current_artists)[colnames(dt_current_artists) != 'artist']
   dt_tfidf <- as.tbl(as.data.frame(dt_current_artists[,lapply(.SD, function(x) x * nrows / sum(x) ), .SDcols = in_cols])) %>% select(which(colSums(., na.rm = TRUE)>0))
-  message(dim(dt_tfidf)[1], ' ', dim(dt_tfidf)[2])
+  # message(dim(dt_tfidf)[1], ' ', dim(dt_tfidf)[2])
   
   dt_tfidf$artist <- df$artist
   dt_tfidf
