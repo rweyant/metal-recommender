@@ -1,4 +1,4 @@
-library(dplyr)
+
 library(plyr);library(dplyr)
 library(cluster)
 library(magrittr)
@@ -44,13 +44,21 @@ current_artists <- trim_metal_artists
 
 
 vote_weights <- data_frame(like=1,dislike=-1,na=0)
+# genre_mapX <- list(
+#   'Thrash/Speed Metal' = c('genre_thrash_metal'),
+#   'Death Metal' = c('genre_death_metal'),
+#   'Black Metal' = c('genre_black_metal'),
+#   'Doom/Sludge/Stoner Metal' = c('genre_doom_metal', 'genre_sludge_metal', 'genre_stoner_metal'),
+#   'Power Metal' = c('genre_power_metal'), 
+#   'Post-metal' = c('genre_post_metal', 'genre_postmetal'))
+
 genre_map <- list(
-  'Thrash/Speed Metal' = c('genre_thrash_metal'),
-  'Death Metal' = c('genre_death_metal'),
-  'Black Metal' = c('genre_black_metal'),
-  'Doom/Sludge/Stoner Metal' = c('genre_doom_metal', 'genre_sludge_metal', 'genre_stoner_metal'),
-  'Power Metal' = c('genre_power_metal'), 
-  'Post-metal' = c('genre_post_metal', 'genre_postmetal'))
+  'Thrash/Speed Metal' = paste(c('thrash', 'speed'), collapse = '|'),
+  'Death Metal' = c('death'),
+  'Black Metal' = c('black'),
+  'Doom/Sludge/Stoner Metal' = paste(c('doom', 'sludge', 'stoner'), collapse = '|'),
+  'Power Metal' = c('power'), 
+  'Post-metal' = paste(c('post', 'postmetal'), collapse = '|'))
 
 origin_map <- list(
   'North America' = c('origin_united_states','origin_canada','lfm_united_states_of_america'),
@@ -177,8 +185,9 @@ server <- function(input, output) {
     find_artists_time <- 
       microbenchmark(
         current_artists <<- 
-          find_current_artists(c(genre_map[input$genres],
-                                 origin_map[input$origin])), 
+          find_current_artists(genre = c(genre_map[input$genres])),
+#         ,
+#                                  origin_map[input$origin])), 
         times = 1L)
     
     # Update TF-IDF to the new subset of bands
@@ -191,7 +200,7 @@ server <- function(input, output) {
     message('TFIDF time:\t\t\t\t', round(tfidf_time$time[1] / 1e9, 2), ' s')
   }
   
-  find_current_artists <- function(columns){
+  find_current_artists <- function(columns = c(), genre = c(), origin = c(), modifiers = c(), vocals = c()){
 #     is_artist_relevant <- 
 #       trim_metal_artists %>%
 #       select(which(colnames(trim_metal_artists) %in% columns)) %>% 
@@ -201,10 +210,23 @@ server <- function(input, output) {
     find_relevant_artists_time <- 
       microbenchmark({
         tmp_trim <- copy(dt_trim_metal_artists)
-        return_dt <- as.tbl(as.data.frame(tmp_trim[, relevant := Reduce(`+`, .SD), .SDcols = which(colnames(tmp_trim) %in% columns), by = artist][relevant > 0])) %>% select(-relevant)
+        return_dt <- 
+          as.tbl(
+            as.data.frame(
+              tmp_trim[, 
+                       relevant := Reduce(`+`, .SD),
+                       .SDcols = which(
+                         grepl( paste(genre, collapse = '|'), colnames(tmp_trim)) &
+                           !(grepl( paste(c('origin_', 'mood_'), collapse = '|'), colnames(tmp_trim)))
+                       ),
+                       by = artist][relevant > 0]
+            )
+          ) %>%
+          select(-relevant)
       },
       times = 1L)
     message('Find Relevant Artists time:\t\t', round(find_relevant_artists_time$time / 1e9, 2), ' s')
+    message(paste(genre, collapse = '|'))
     return_dt
   }
 

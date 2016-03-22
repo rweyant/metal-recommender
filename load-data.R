@@ -137,8 +137,14 @@ artist_summary <- merged_artists
 metal_artists <- artist_summary %>% filter(metal == 1)
 metal_artists[is.na(metal_artists)] <- 0
 
+library(data.table)
+dt_metal_artists <- as.data.table(metal_artists)
+tmpCols <- colnames(dt_metal_artists)[lapply(dt_metal_artists, is.numeric) %>% unlist %>% as.vector]
+trim_metal_artists <- metal_artists[,tmpCols] %>% select(which(colSums(., na.rm = TRUE)>0))
+trim_metal_artists$artist <- metal_artists$artist
+
 cols <- names(trim_metal_artists)
 artist_cols <- get_columns(cols)
 
-save(metal_artists,artist_cols,file = 'RData/metal-example.RData')
+save(trim_metal_artists,artist_cols,file = 'RData/metal-example.RData')
 

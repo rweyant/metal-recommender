@@ -1,4 +1,5 @@
-
+library(memoise)
+library(tidyr)
 create_artist_query_url_lfm <- function(artist_name){
   prefix <- "http://ws.audioscrobbler.com/2.0/?method=artist.gettoptags&artist="
   postfix <- "&api_key=c2e57923a25c03f3d8b317b3c8622b43&format=json"
@@ -15,6 +16,7 @@ get_tag_frame_lfm <- function(an_artist){
     message(paste0("Could not find: ", an_artist))
     return(NULL)
   }
+  
   return(json$toptags$tag[,c("name",'count')])
 }
 
