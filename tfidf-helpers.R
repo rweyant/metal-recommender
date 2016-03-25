@@ -31,12 +31,12 @@ get_tags <- function(df,band,threshold=0.1) df %>% filter(artist==band) %>% sele
 # Calculate TF-IDF based on a specific set of columns
 calc_tfidf <- function(df){
   nrows <- nrow(df)
-  tfidf <- 
-    df %>% 
-    select(-artist) %>%
-    select(which(colSums(., na.rm = TRUE)>0)) %>%
-    mutate_each(funs(. * nrows/sum(.))) 
-  
+#   tfidf <- 
+#     df %>% 
+#     select(-artist) %>%
+#     select(which(colSums(., na.rm = TRUE)>0)) %>%
+#     mutate_each(funs(. * nrows/sum(.))) 
+#   
   dt_current_artists <- as.data.table(df)
   nrows <- nrow(dt_current_artists)
   in_cols <- colnames(dt_current_artists)[colnames(dt_current_artists) != 'artist']

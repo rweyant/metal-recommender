@@ -40,6 +40,7 @@ message('Load artist_cols.RData:\t\t\t', round(load_time2$time / 1e9, 2), ' s')
 zero <- function(x) 0
 profile_of_interest <- trim_metal_artists[1,] %>% mutate_each(funs(zero)) %>% select(-artist)
 dt_trim_metal_artists <- as.data.table(trim_metal_artists)
+# setkey(dt_trim_metal_artists)
 current_artists <- trim_metal_artists
 
 
@@ -61,17 +62,30 @@ genre_map <- list(
   'Post-metal' = paste(c('post', 'postmetal'), collapse = '|'))
 
 origin_map <- list(
-  'North America' = c('origin_united_states','origin_canada','lfm_united_states_of_america'),
-  'UK/Ireland' = c('origin_united_kingdom','origin_northern_ireland','origin_ireland','lfm_united_kingdom', 'lfm_united_states'),
-  'Sweden' = c('origin_sweden'),
-  'Finland' = c('origin_finland'),
-  'Norway' = c('origin_norway',''),
-  'Germany/Austria' = c('origin_germany','origin_austria'), 
-  'France' = c('origin_france'), 
-  'Italy' = c('origin_italy'),
-  'Asia' = c('origin_japan'),
-  'Latin America' = c('origin_brazil')
+  'North America' = paste(c('united_states','canada','united_states_of_america', 'usa'), collapse = '|'),
+  'UK/Ireland' = paste(c('united_kingdom','northern_ireland','ireland'), collapse = '|'),
+  'Sweden' = c('sweden'),
+  'Finland' = c('finland'),
+  'Norway' = c('norway'),
+  'Germany/Austria' = paste(c('germany','austria'), collapse = '|'), 
+  'France' = c('france'), 
+  'Italy' = c('italy'),
+  'Asia' = paste(c('japan','china','thai','cambodia','india','bangladesh','pakistan','chinese','japanese','asian','korea','mongolia','vietnamese','singapor','malay'), collapse = '|'),
+  'Latin America' = paste(c('brazil', 'south_america','central_america','latin_america','argentina','chile','colombia','hondura','panama','peru', 'latin'), collapse = '|')
   )
+
+modifier_map <- list(
+  'Blackened' = c('blackened'),
+  'Progressive' = c('progressive'),
+  'Technical' = c('technical'),
+  'Atmospheric' = c('atmospheric'),
+  'Funeral' = c('funeral'),
+  'Drone' = c('drone'), 
+  'Crossover' = c('crossover'),
+  'Groove' = c('groove'),
+  'Old School' = paste(c('oldschool','old_school'), collapse = '|')
+)
+
 
 
 ui <- dashboardPage(
@@ -97,7 +111,18 @@ ui <- dashboardPage(
              fluidRow(
                box(
                  checkboxGroupInput(inputId = 'genres',
-                                    label = 'Sub-Genre',
+                                    label = 'Include Sub-Genre',
+                                    choices = c('Thrash/Speed Metal',
+                                                'Death Metal',
+                                                'Black Metal',
+                                                'Doom/Sludge/Stoner Metal',
+                                                'Power Metal', 
+                                                'Post-metal')
+                 )
+               ),
+               box(
+                 checkboxGroupInput(inputId = 'exclude_genres',
+                                    label = 'Exclude Sub-Genre',
                                     choices = c('Thrash/Speed Metal',
                                                 'Death Metal',
                                                 'Black Metal',
@@ -108,7 +133,21 @@ ui <- dashboardPage(
                ),
                box(
                  checkboxGroupInput(inputId = 'modifiers',
-                                    label = 'Modifiers',
+                                    label = 'Include Modifiers',
+                                    choices = c('Blackened',
+                                                'Progressive',
+                                                'Technical',
+                                                'Atmospheric',
+                                                'Funeral',
+                                                'Drone', 
+                                                'Crossover',
+                                                'Groove',
+                                                'Old School')
+                 )
+               ),
+               box(
+                 checkboxGroupInput(inputId = 'exclude_modifiers',
+                                    label = 'Exclude Modifiers',
                                     choices = c('Blackened',
                                                 'Progressive',
                                                 'Technical',
@@ -124,7 +163,21 @@ ui <- dashboardPage(
              fluidRow(
                box(
                  checkboxGroupInput(inputId = 'origin',
-                                    label = 'Country',
+                                    label = 'Include Country',
+                                    choices = c('North America', 
+                                                'UK/Ireland',
+                                                'Sweden',
+                                                'Finland',
+                                                'Norway',
+                                                'Germany/Austria', 
+                                                'France', 
+                                                'Asia', 
+                                                'Latin America')
+                 )
+               ),
+               box(
+                 checkboxGroupInput(inputId = 'exclude_origin',
+                                    label = 'Exclude Country',
                                     choices = c('North America', 
                                                 'UK/Ireland',
                                                 'Sweden',
@@ -139,7 +192,7 @@ ui <- dashboardPage(
                box(
                  radioButtons(inputId = 'vocals',
                               label = 'Vocal Style',
-                              choices = c('Harsh','Clean','In-between','Any'),
+                              choices = c('Harsh','Clean','In-between','Both','Any'),
                               selected = 'Any',
                               inline =  FALSE
                  )
@@ -174,9 +227,6 @@ server <- function(input, output) {
         },
         times = 1L)
     message('Tag update time:\t\t\t', round(update_profile_time$time / 1e9, 2), ' s')
-
-    
-    
   }
   
   update_genres_nr <-function(){
@@ -185,9 +235,9 @@ server <- function(input, output) {
     find_artists_time <- 
       microbenchmark(
         current_artists <<- 
-          find_current_artists(genre = c(genre_map[input$genres])),
-#         ,
-#                                  origin_map[input$origin])), 
+          find_current_artists(genre = c(genre_map[input$genres]), 
+                               origin = c(origin_map[input$origin]), 
+                               modifiers = c(modifier_map[input$modifiers])),
         times = 1L)
     
     # Update TF-IDF to the new subset of bands
@@ -200,7 +250,27 @@ server <- function(input, output) {
     message('TFIDF time:\t\t\t\t', round(tfidf_time$time[1] / 1e9, 2), ' s')
   }
   
-  find_current_artists <- function(columns = c(), genre = c(), origin = c(), modifiers = c(), vocals = c()){
+  match_columns <- function(patterns, exclusions, column_names) {
+    which( grepl( paste(patterns, collapse = '|'), column_names) &  !( grepl( paste(c(exclusions, 'artist'), collapse = '|'), column_names) ) )
+  }
+  match_relevant_artists <- function(columns, threshold = 0.3){
+    as.tbl( 
+      as.data.frame( 
+        tmp_trim[, 
+                 relevant := Reduce(`+`, .SD),
+                 .SDcols = columns,
+                 by = artist][relevant > threshold]
+      )) %>%
+      select(artist) %>% extract2(1)
+    
+  }
+  
+  find_current_artists <- function(columns = c(),
+                                   genre = c(),
+                                   genre_exclusion = c(),
+                                   origin = c(),
+                                   modifiers = c(),
+                                   vocals = c()){
 #     is_artist_relevant <- 
 #       trim_metal_artists %>%
 #       select(which(colnames(trim_metal_artists) %in% columns)) %>% 
@@ -210,23 +280,28 @@ server <- function(input, output) {
     find_relevant_artists_time <- 
       microbenchmark({
         tmp_trim <- copy(dt_trim_metal_artists)
-        return_dt <- 
-          as.tbl(
-            as.data.frame(
-              tmp_trim[, 
-                       relevant := Reduce(`+`, .SD),
-                       .SDcols = which(
-                         grepl( paste(genre, collapse = '|'), colnames(tmp_trim)) &
-                           !(grepl( paste(c('origin_', 'mood_'), collapse = '|'), colnames(tmp_trim)))
-                       ),
-                       by = artist][relevant > 0]
-            )
-          ) %>%
-          select(-relevant)
+        setkey(tmp_trim,artist)
+        genre_match <- match_columns(genre, c('origin_', 'mood_'), colnames(tmp_trim) )
+        genre_exclusion <- match_columns(genre_exclusion, c('origin_', 'mood_'), colnames(tmp_trim) )
+        origin_match <- match_columns(origin, c('genre_', 'mood_'), colnames(tmp_trim) )
+        modifiers_match <- match_columns(modifiers, c('genre_', 'origins_', 'mood_'), colnames(tmp_trim) )
+
+        message(paste(modifiers, collapse = '|'))
+        message('Genre Exclusions: ', length(genre_exclusion))
+        
+        relevant_genre <- match_relevant_artists(genre_match)
+        genre_exclusion_artists <- match_relevant_artists(genre_exclusion)
+        relevant_origin <- match_relevant_artists(origin_match)
+        relevant_modifier <- match_relevant_artists(modifiers_match)
+
+        # return_dt <- tmp_trim[artist %in% relevant_genre & artist %in% relevant_origin & artist %in% relevant_modifier ]
+        inclusions <- Reduce(intersect, list(relevant_genre, relevant_origin, relevant_modifier))
+        message(length(inclusions))
+        return_dt <- tmp_trim[ inclusions, , ]
       },
       times = 1L)
     message('Find Relevant Artists time:\t\t', round(find_relevant_artists_time$time / 1e9, 2), ' s')
-    message(paste(genre, collapse = '|'))
+    message(paste(genre, collapse = '|'), '-|-',paste(origin, collapse = '|') )
     return_dt
   }
 
