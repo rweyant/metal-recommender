@@ -90,6 +90,14 @@ column_match <- function(.data,pattern,type='n'){
   if(type=='name') return(colnames(.data)[str_detect(colnames(.data),pattern)])
 }
 
+coalesce2 <- function(...) {
+  Reduce(function(x, y) {
+    i <- which(is.na(x))
+    x[i] <- y[i]
+    x},
+    list(...))
+}
+
 camel <- function(x){ #function for camel case
   capit <- function(x) paste0(toupper(substring(x, 1, 1)), substring(x, 2, nchar(x)))
   sapply(strsplit(x, "\\."), function(x) paste(capit(x), collapse=""))
