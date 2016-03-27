@@ -34,8 +34,10 @@ load_time2 <-
   microbenchmark(
     load('../RData/artist_cols.RData'),
     times = 1L)
-message('Load metal-example.RData:\t\t\t', round(load_time1$time / 1e9, 2), ' s')
+message('Load metal-example.RData:\t\t', round(load_time1$time / 1e9, 2), ' s')
 message('Load artist_cols.RData:\t\t\t', round(load_time2$time / 1e9, 2), ' s')
+
+trim_metal_artists <- trim_metal_artists %>% select(-num_songs)
 
 zero <- function(x) 0
 ### SLOW DOWN HERE
@@ -57,10 +59,13 @@ vote_weights <- data_frame(like=1,dislike=-1,na=0)
 genre_map <- list(
   'Thrash/Speed Metal' = paste(c('thrash', 'speed'), collapse = '|'),
   'Death Metal' = c('death'),
+  'Grindcore' = c('grind'),
   'Black Metal' = c('black'),
   'Doom/Sludge/Stoner Metal' = paste(c('doom', 'sludge', 'stoner'), collapse = '|'),
   'Power Metal' = c('power'), 
-  'Post-metal' = paste(c('post', 'postmetal'), collapse = '|'))
+  'Post-metal' = paste(c('post', 'postmetal'), collapse = '|'),
+  'Industrial Metal' = paste(c('industrial', collapse = '|')),
+  'Metalcore' = paste(c('metalcore', 'deathcore'), collapse = '|'))
 
 origin_map <- list(
   'North America' = paste(c('united_states','canada','united_states_of_america', 'usa'), collapse = '|'),
@@ -104,91 +109,65 @@ ui <- dashboardPage(
                              label = 'Artists like:',
                              choices = current_artists$artist,
                              multiple=TRUE,
+                             selectize=TRUE)
+               ),
+               box(
+                 selectInput(inputId = 'disliked_artists', 
+                             label = 'Artists unlike:',
+                             choices = current_artists$artist,
+                             multiple=TRUE,
+                             selectize=TRUE)
+               )
+             ),
+             fluidRow(
+               box(
+                 selectInput(inputId = 'genres', 
+                             label = 'Include Sub-Genre:',
+                             choices = names(genre_map),
+                             multiple=TRUE,
                              selectize=TRUE),
-                 uiOutput('bandVoting'),
-                 actionButton('SubmitButton','Submit')
-               )
+                 sliderInput(inputId = 'thrash',
+                             label = 'Thrash / Speed Metal',
+                             min = -10, max = 10, value = 0, step = 1
+                             )
+               ),
+               box(
+                 selectInput(inputId = 'exclude_genres', 
+                             label = 'Exclude Sub-Genre:',
+                             choices = names(genre_map),
+                             multiple=TRUE,
+                             selectize=TRUE)
+               )),
+             fluidRow(
+               box(
+                 selectInput(inputId = 'modifiers', 
+                             label = 'Include Modifiers:',
+                             choices = names(modifier_map),
+                             multiple=TRUE,
+                             selectize=TRUE)
+               ),
+               box(
+                 selectInput(inputId = 'exclude_modifiers', 
+                             label = 'Exclude Modifiers:',
+                             choices = names(modifier_map),
+                             multiple=TRUE,
+                             selectize=TRUE)
+                 )
              ),
              fluidRow(
                box(
-                 checkboxGroupInput(inputId = 'genres',
-                                    label = 'Include Sub-Genre',
-                                    choices = c('Thrash/Speed Metal',
-                                                'Death Metal',
-                                                'Black Metal',
-                                                'Doom/Sludge/Stoner Metal',
-                                                'Power Metal', 
-                                                'Post-metal')
-                 )
+                 selectInput(inputId = 'origin', 
+                             label = 'Include Country:',
+                             choices = names(origin_map),
+                             multiple=TRUE,
+                             selectize=TRUE)
                ),
                box(
-                 checkboxGroupInput(inputId = 'exclude_genres',
-                                    label = 'Exclude Sub-Genre',
-                                    choices = c('Thrash/Speed Metal',
-                                                'Death Metal',
-                                                'Black Metal',
-                                                'Doom/Sludge/Stoner Metal',
-                                                'Power Metal', 
-                                                'Post-metal')
-                 )
-               ),
-               box(
-                 checkboxGroupInput(inputId = 'modifiers',
-                                    label = 'Include Modifiers',
-                                    choices = c('Blackened',
-                                                'Progressive',
-                                                'Technical',
-                                                'Atmospheric',
-                                                'Funeral',
-                                                'Drone', 
-                                                'Crossover',
-                                                'Groove',
-                                                'Old School')
-                 )
-               ),
-               box(
-                 checkboxGroupInput(inputId = 'exclude_modifiers',
-                                    label = 'Exclude Modifiers',
-                                    choices = c('Blackened',
-                                                'Progressive',
-                                                'Technical',
-                                                'Atmospheric',
-                                                'Funeral',
-                                                'Drone', 
-                                                'Crossover',
-                                                'Groove',
-                                                'Old School')
-                 )
-               )
-             ),
-             fluidRow(
-               box(
-                 checkboxGroupInput(inputId = 'origin',
-                                    label = 'Include Country',
-                                    choices = c('North America', 
-                                                'UK/Ireland',
-                                                'Sweden',
-                                                'Finland',
-                                                'Norway',
-                                                'Germany/Austria', 
-                                                'France', 
-                                                'Asia', 
-                                                'Latin America')
-                 )
-               ),
-               box(
-                 checkboxGroupInput(inputId = 'exclude_origin',
-                                    label = 'Exclude Country',
-                                    choices = c('North America', 
-                                                'UK/Ireland',
-                                                'Sweden',
-                                                'Finland',
-                                                'Norway',
-                                                'Germany/Austria', 
-                                                'France', 
-                                                'Asia', 
-                                                'Latin America')
-                 )
+                 selectInput(inputId = 'exclude_origin', 
+                             label = 'Exclude Country:',
+                             choices = names(origin_map),
+                             multiple=TRUE,
+                             selectize=TRUE)
                ),
                box(
                  radioButtons(inputId = 'vocals',
@@ -198,7 +177,8 @@ ui <- dashboardPage(
                               inline =  FALSE
                  )
                )
-             )
+             ),
+             fluidRow( column(6, actionButton("save_button", "Save"), actionButton("submit_button", "Submit") ) )
       ),
       box(
         title = "Recommended Artists",
@@ -213,8 +193,13 @@ ui <- dashboardPage(
 
 server <- function(input, output) { 
   
+  save_state <- observeEvent(input$save_button, {
+    message('Saving.')
+    save.image('../RData/current_state.RData')
+    message('Done Saving.')
+  })
+  
   update_profile <- function(){
-    
     
     update_profile_time <- 
       microbenchmark(
@@ -224,7 +209,11 @@ server <- function(input, output) {
           dt_trim_metal_artists <- as.data.table(trim_metal_artists)
           setkey(dt_trim_metal_artists, artist)
           in_cols <- colnames(dt_trim_metal_artists)[colnames(dt_trim_metal_artists) != 'artist']
-          profile_of_interest <<- as.tbl(dt_trim_metal_artists[input$liked_artists, lapply(.SD, mean), .SDcols = in_cols ])
+          like_profile <- dt_trim_metal_artists[input$liked_artists, lapply(.SD, mean), .SDcols = in_cols ]
+          if( length(input$disliked_artists) > 0 ) {
+            dislike_profile <- dt_trim_metal_artists[input$disliked_artists, lapply(.SD, mean), .SDcols = in_cols ]
+          } else dislike_profile <- 0
+          profile_of_interest <<- like_profile - dislike_profile
         },
         times = 1L)
     message('Tag update time:\t\t\t', round(update_profile_time$time / 1e9, 2), ' s')
@@ -242,7 +231,7 @@ server <- function(input, output) {
                                genre_exclusion = c(genre_map[input$exclude_genres]),
                                origin_exclusion = c(origin_map[input$exclude_origin]), 
                                modifier_exclusion = c(modifier_map[input$exclude_modifiers])
-                              ),
+          ),
         times = 1L)
     
     # Update TF-IDF to the new subset of bands
@@ -284,8 +273,25 @@ server <- function(input, output) {
   }
   
   
-  find_current_artists <- function(columns = c(),
-                                   genre = c(),
+  figure_out_genres <- function(){
+    
+    genre_column_match <- 
+      lapply(names(genre_map), function(x)
+        match_columns(genre_map[[x]], c('origin_', 'mood_'), colnames(tmp_trim) ))
+    
+    genre_exclusion_columns <- match_columns(genre_exclusion, c('origin_', 'mood_'), colnames(tmp_trim) )
+
+    message(paste(modifiers, collapse = '|'))
+    message('Genre Exclusions: ', length(genre_exclusion_columns))
+    
+    relevant_genre <- match_relevant_artists(tmp_trim, genre_match, threshold = max(0, input$thrash / 10) )
+    relevant_origin <- match_relevant_artists(tmp_trim, origin_match)
+    relevant_modifier <- match_relevant_artists(tmp_trim, modifiers_match)
+    
+    
+  }
+  
+  find_current_artists <- function(genre = c(),
                                    genre_exclusion = c(),
                                    origin = c(),
                                    origin_exclusion = c(),
@@ -310,7 +316,7 @@ server <- function(input, output) {
         message(paste(modifiers, collapse = '|'))
         message('Genre Exclusions: ', length(genre_exclusion_columns))
         
-        relevant_genre <- match_relevant_artists(tmp_trim, genre_match)
+        relevant_genre <- match_relevant_artists(tmp_trim, genre_match, threshold = max(0, input$thrash / 10) )
         relevant_origin <- match_relevant_artists(tmp_trim, origin_match)
         relevant_modifier <- match_relevant_artists(tmp_trim, modifiers_match)
         
@@ -334,6 +340,15 @@ server <- function(input, output) {
       times = 1L)
     message('Find Relevant Artists time:\t\t', round(find_relevant_artists_time$time / 1e9, 2), ' s')
     message(paste(genre, collapse = '|'), '-|-',paste(origin, collapse = '|') )
+    
+    # tmp_profile <- as.data.table(profile_of_interest)
+    tmp_profile <- as.data.frame(profile_of_interest)
+    # tmp_profile[]
+    # sum(tmp_profile[1,] )
+    message('dim(tmp_profile) = ', dim(tmp_profile))
+    tmp_profile[,genre_match] <- tmp_profile[,genre_match] + 1
+    profile_of_interest <<- tbl_df(tmp_profile)
+    
     return_dt
   }
 
